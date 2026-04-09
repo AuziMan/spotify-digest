@@ -1,3 +1,3 @@
-# shareThatJam
+# spotify-digest
 
-# Navigate to 'react-native' branch for all mobile related logic.
+# work in progress application. more to come. 
