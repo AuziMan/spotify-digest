@@ -40,12 +40,15 @@ const NowPlaying = () => {
     return (
         <div className="d-flex justify-content-center">
             <div className="now-playing-card">
-            {track && track.track && track.artist && track.albumImg ? (
+            {track?.track && track?.artist && track?.albumImg ? (
+            <>
+            <h1 className="text-center mb-4">Now Playing</h1>
                 <TrackCard
                     trackName={track.track}
                     artistName={track.artist}
                     albumImg={track.albumImg}
                 />
+            </>
             ): (
                 <div className="no-track-playing">
                     <h1>No Track Playing</h1>

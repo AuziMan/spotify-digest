@@ -110,7 +110,7 @@ def post_create_new_album():
         playlist_name = playlist_info.get('name')
         requestBody = {
             "name": playlist_name,
-            "description": "New Playlist from Share That Jam",
+            "description": "New Playlist from spotify digest",
             "public": True
         }
         print(requestBody)

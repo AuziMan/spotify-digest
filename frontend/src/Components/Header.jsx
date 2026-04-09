@@ -71,7 +71,7 @@ function Header() {
 <Navbar expand="lg" className="px-3" style={{ backgroundColor: '#E6E6E6', color: '#F5F5F5', position: 'relative' }}>
   <Container>
         {/* Left Side: App Brand */}
-        <Navbar.Brand href="/home">Share That Jam</Navbar.Brand>
+        <Navbar.Brand href="/home">Spotify Digest</Navbar.Brand>
         <Navbar.Toggle aria-controls="basic-navbar-nav" />
         <Navbar.Collapse id="basic-navbar-nav">
           <Nav className="me-auto">
