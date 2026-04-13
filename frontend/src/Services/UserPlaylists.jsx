@@ -9,7 +9,11 @@ const UserPlaylists = () => {
 
     useEffect(() => {
         // Fetch top tracks from Flask backend
-        axios.get('/playlist/playlists')
+        axios.get('/playlist/playlists', {
+                headers: {
+                    Authorization: `Bearer ${localStorage.getItem("token")}`
+                }
+        })
             .then(response => {
                 setPlaylists(response.data.items);
                 console.log("User Playlists", response.data)

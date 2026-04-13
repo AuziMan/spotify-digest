@@ -5,6 +5,8 @@ import datetime
 import json
 from flask import jsonify, session
 import requests
+from server.spotify.utils.auth import get_spotify_token
+
 
 
 BASE_SPOTIFY_URL = "https://api.spotify.com/v1/me"
@@ -120,14 +122,13 @@ def get_playback_info(playback_data):
 def get_user_info_from_spotify():
     """ Helper function to fetch user info from Spotify. """
     try:
-        if not session.get('access_token'):
-            return None
+        access_token = get_spotify_token()
 
-        if datetime.datetime.now().timestamp() > session['expires_at']:
-            return None
+        if not access_token:
+            return jsonify({"error": "Unauthorized"}), 401
 
         headers = {
-            'Authorization': f"Bearer {session['access_token']}"
+            'Authorization': f"Bearer {access_token}"
         }
 
         response = requests.get(BASE_SPOTIFY_URL, headers=headers)
@@ -144,14 +145,13 @@ def get_user_info_from_spotify():
 
 def format_user_recc_seeds():
     try:
-        if not session.get('access_token'):
-            return None
+        access_token = get_spotify_token()
 
-        if datetime.datetime.now().timestamp() > session['expires_at']:
-            return None
+        if not access_token:
+            return jsonify({"error": "Unauthorized"}), 401
 
         headers = {
-            'Authorization': f"Bearer {session['access_token']}"
+            'Authorization': f"Bearer {access_token}"
         }
 
         response = requests.get(SPOTIFY_TOP_TRACKS_ENDPOINT, headers=headers)
@@ -177,14 +177,13 @@ def format_user_recc_seeds():
 def search_tracks_by_id(seeds):
     try:
         print("in search by id")
-        if not session.get('access_token'):
-            return None
+        access_token = get_spotify_token()
 
-        if datetime.datetime.now().timestamp() > session['expires_at']:
-            return None
+        if not access_token:
+            return jsonify({"error": "Unauthorized"}), 401
 
         headers = {
-            'Authorization': f"Bearer {session['access_token']}"
+            'Authorization': f"Bearer {access_token}"
         }
 
         if seeds:

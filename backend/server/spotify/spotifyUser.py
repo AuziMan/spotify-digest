@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 import requests
 import json
 from server.spotify.utils.sharedFunctions import format_response_array, format_response_obj, format_user_recc_seeds, search_tracks_by_id, format_track_search
+from server.spotify.utils.auth import get_spotify_token
+
 
 
 user_blueprint = Blueprint("user", __name__)
@@ -21,16 +23,13 @@ SPOTIFY_NOW_PLAYING_ENDPOINT = f"{BASE_SPOTIFY_URL}/player/currently-playing"
 @user_blueprint.route('/topTracks', methods=['GET'])
 def get_top_tracks():
     try:
-        if not session.get('access_token'):
-            session['next_url'] = request.path  # Store the requested endpoint
-            return redirect(url_for('auth.login'))
+        access_token = get_spotify_token()
 
-        if datetime.datetime.now().timestamp() > session['expires_at']:
-            session['next_url'] = request.path  # Store the requested endpoint
-            return redirect(url_for('auth.refresh_token'))
+        if not access_token:
+            return jsonify({"error": "Unauthorized"}), 401
         
         headers = {
-            'Authorization': f"Bearer {session['access_token']}"
+            'Authorization': f"Bearer {access_token}"
         }
 
         response = requests.get(SPOTIFY_TOP_TRACKS_ENDPOINT, headers=headers)
@@ -48,14 +47,13 @@ def get_top_tracks():
 @user_blueprint.route('/nowPlaying', methods=['GET'])
 def get_now_playing():
     try:
-        if not session.get('access_token'):
-            return redirect(url_for('auth.login'))
+        access_token = get_spotify_token()
 
-        if datetime.datetime.now().timestamp() > session['expires_at']:
-            return redirect(url_for('auth.refresh_token'))
+        if not access_token:
+            return jsonify({"error": "Unauthorized"}), 401
         
         headers = {
-            'Authorization': f"Bearer {session['access_token']}"
+            'Authorization': f"Bearer {access_token}"
         }
         response = requests.get(SPOTIFY_NOW_PLAYING_ENDPOINT, headers=headers)
 
@@ -79,14 +77,13 @@ def get_now_playing():
 def get_user_info():
     try:
 
-        if not session.get('access_token'):
-            return redirect(url_for('auth.login'))
+        access_token = get_spotify_token()
 
-        if datetime.datetime.now().timestamp() > session['expires_at']:
-            return redirect(url_for('auth.refresh_token'))
+        if not access_token:
+            return jsonify({"error": "Unauthorized"}), 401
         
         headers = {
-            'Authorization': f"Bearer {session['access_token']}"
+            'Authorization': f"Bearer {access_token}"
         }
 
         response = requests.get(BASE_SPOTIFY_URL, headers=headers)
@@ -110,11 +107,11 @@ def get_reccomended_tracks():
     try:
         print("in reccs")
 
-        if not session.get('access_token'):
-            return redirect(url_for('auth.login'))
+        access_token = get_spotify_token()
 
-        if datetime.datetime.now().timestamp() > session['expires_at']:
-            return redirect(url_for('auth.refresh_token'))
+        if not access_token:
+            return jsonify({"error": "Unauthorized"}), 401
+        
 
         print("calling shared func")
         track_seeds = format_user_recc_seeds()

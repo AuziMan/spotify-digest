@@ -9,7 +9,11 @@ const TopTracks = () => {
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        axios.get('/user/topTracks')
+        axios.get('/user/topTracks',{
+            headers: {
+                    Authorization: `Bearer ${localStorage.getItem("token")}`
+                }
+        })
             .then(response => {
                 setTracks(response.data);
                 console.log("Top Tracks", response.data);

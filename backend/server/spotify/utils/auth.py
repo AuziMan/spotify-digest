@@ -1,10 +1,11 @@
 import base64
-from datetime import datetime
+import jwt
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 import os
 import requests
 import urllib.parse
-from flask import Flask, jsonify, request, Blueprint, redirect, session
+from flask import Flask, jsonify, request, Blueprint, redirect
 
 load_dotenv()
 
@@ -15,6 +16,42 @@ SPOTIFY_CS = os.getenv('SPOTIFY_CLIENT_SECRET')
 LOCAL_BASE_URL = os.getenv('LOCAL_BASE_URL')
 FRONTEND_BASE_URL = os.getenv('FRONTEND_BASE_URL')
 MOBILE_REDIRECT_URI = os.getenv('MOBILE_REDIRECT_URI') 
+JWT_SECRET = os.getenv('JWT_SECRET') 
+
+JWT_SECRET = JWT_SECRET
+JWT_ALGORITHM = 'HS256'
+
+def create_jwt_token(access_token, refresh_token, ):
+    payload = {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "exp": datetime.now(timezone.utc) + timedelta(hours=1)  # Token expires in 1 hour
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+def decode_jwt_token(token):
+    return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+
+def get_spotify_token():
+    auth_header = request.headers.get("Authorization")
+
+    if not auth_header:
+        return None
+
+    parts = auth_header.split()
+
+    if len(parts) != 2 or parts[0] != "Bearer":
+        return None
+
+    jwt_token = parts[1]
+
+    try:
+        payload = decode_jwt_token(jwt_token)
+        return payload.get("access_token")
+    except Exception as e:
+        print("JWT decode failed:", e)
+        return None
+
 
 REDIRECT_URI = f"{LOCAL_BASE_URL}/auth/callback"
 
@@ -24,7 +61,7 @@ TOKEN_URL = "https://accounts.spotify.com/api/token"
 
 @auth_blueprint.route('/login')
 def login():
-    print(session)  # This will print session data in the console
+    # print(session)
     scope = 'user-read-private user-read-email user-top-read user-modify-playback-state user-read-currently-playing playlist-modify-public playlist-modify-private user-read-playback-state'
 
     params = {
@@ -37,138 +74,79 @@ def login():
 
     auth_url = f"{AUTH_URL}?{urllib.parse.urlencode(params)}"
     print(f"Generated Auth URL: {auth_url}")  # Print the URL for debugging
-    return jsonify({"spotify_oauth_url": auth_url})  # Return the URL as JSON
+    # return jsonify({"spotify_oauth_url": auth_url})  # Return the URL as JSON
+    return redirect(auth_url)  # Redirect the user to Spotify's authorization page
 
-    # return redirect(auth_url)
 
-
-@auth_blueprint.route('/callback', methods=['GET', 'POST'])
+@auth_blueprint.route('/callback')
 def callback():
-    print("In callback route, method:", request.method)
-    
-    # Handle POST request from mobile app
-    if request.method == 'POST':
-        try:
-            print("Processing POST request")
-            data = request.get_json()
-            print("Received data:", data)
-            
-            code = data.get('code')
-            if not code:
-                print("No authorization code provided")
-                return jsonify({"error": "No authorization code provided"}), 400
-            
-            print("Exchanging code for token")
-            # Exchange code for token
-            req_body = {
-                'code': code,
-                'grant_type': 'authorization_code',
-                'redirect_uri': REDIRECT_URI,
-                'client_id': SPOTIFY_CID,
-                'client_secret': SPOTIFY_CS
-            }
-            
-            response = requests.post(TOKEN_URL, data=req_body)
-            
-            if response.status_code != 200:
-                print(f"Token exchange failed with status {response.status_code}")
-                print("Response content:", response.text)
-                return jsonify({"error": f"Failed to retrieve access token: {response.text}"}), response.status_code
-            
-            token_info = response.json()
-            print("Token exchange successful")
-            
-            if 'access_token' not in token_info:
-                print("No access token in response")
-                return jsonify({"error": "Failed to retrieve access token"}), 400
-            
-            # Store tokens in session if needed
-            session['access_token'] = token_info['access_token']
-            session['refresh_token'] = token_info['refresh_token']
-            session['expires_at'] = datetime.now().timestamp() + token_info['expires_in']
-            
-            # Return tokens to mobile client
-            return jsonify({
-                "access_token": token_info['access_token'],
-                "refresh_token": token_info['refresh_token'],
-                "expires_in": token_info['expires_in']
-            })
-            
-        except Exception as e:
-            print(f"Error in POST callback: {e}")
-            import traceback
-            traceback.print_exc()
-            return jsonify({"error": str(e)}), 500
-    
-    # Handle GET request from browser redirect
-    elif request.method == 'GET':
-        print("Processing GET request")
-        if 'error' in request.args:
-            return jsonify({"error": request.args['error']})
-        
-        if 'code' in request.args:
-            code = request.args['code']
-            print(f"Got authorization code: {code[:10]}...")
-            
-            req_body = {
-                'code': code,
-                'grant_type': 'authorization_code',
-                'redirect_uri': REDIRECT_URI,
-                'client_id': SPOTIFY_CID,
-                'client_secret': SPOTIFY_CS
-            }
+    print("Processing OAuth callback")
 
-            try:
-                response = requests.post(TOKEN_URL, data=req_body)
-                response.raise_for_status()  # Raise an error for bad responses
-                token_info = response.json()
+    error = request.args.get('error')
+    code = request.args.get('code')
 
-                if 'access_token' not in token_info:
-                    return jsonify({"error": "Failed to retrieve access token"}), 400
+    if error:
+        return jsonify({"error": error}), 400
 
-                session['access_token'] = token_info['access_token']
-                session['refresh_token'] = token_info['refresh_token']
-                session['expires_at'] = datetime.now().timestamp() + token_info['expires_in'] 
+    if not code:
+        return jsonify({"error": "Authorization code not found"}), 400
 
-                print("Authentication successful via GET")
+    try:
+        print(f"Got authorization code: {code[:10]}...")
 
-                # Determine where to redirect (mobile vs web)
-                redirect_uri = request.args.get("redirect_uri", FRONTEND_BASE_URL)
-
-                # Redirect to mobile deep link if applicable
-                if "shareThatJam://" in redirect_uri:
-                    return redirect(f"{MOBILE_REDIRECT_URI}?code={code}")
-                else:
-                    return redirect(f"{FRONTEND_BASE_URL}/top-tracks")
-            
-            except requests.exceptions.RequestException as e:
-                print(f"Error while exchanging token: {e}")
-                return jsonify({"error": "Failed to retrieve access token"}), 500
-        else:
-            return jsonify({"error": "Authorization code not found in request"}), 400
-    
-    else:
-        return jsonify({"error": "Method not allowed"}), 405
-
-
-@auth_blueprint.route('/refresh_token')
-def refresh_token():
-    if 'refresh_token' not in session:
-        return redirect('/login')
-    
-    if datetime.now().timestamp() > session['expires_at']:
+        # Exchange code for tokens
         req_body = {
-            'grant_type': 'refresh_token',
-            'refresh_token': session['refresh_token'],
+            'code': code,
+            'grant_type': 'authorization_code',
+            'redirect_uri': REDIRECT_URI,
             'client_id': SPOTIFY_CID,
             'client_secret': SPOTIFY_CS
         }
 
         response = requests.post(TOKEN_URL, data=req_body)
-        new_token_info = response.json()
+        response.raise_for_status()
 
-        session['access_token'] = new_token_info['access_token']
-        session['expires_at'] = datetime.now().timestamp() + new_token_info['expires_in'] 
+        token_info = response.json()
 
-        next_url = session.pop('next_url', '/user/topTracks')
-        return redirect(next_url)
+        if 'access_token' not in token_info:
+            return jsonify({"error": "Failed to retrieve access token"}), 400
+
+        access_token = token_info['access_token']
+        refresh_token = token_info.get('refresh_token')
+
+        print("Token exchange successful")
+
+        # ✅ CREATE JWT (this is the key change)
+        jwt_token = create_jwt_token(access_token, refresh_token)
+
+        print("JWT created, redirecting to frontend")
+
+        # ✅ Redirect to React app with JWT
+        return redirect(f"{FRONTEND_BASE_URL}/callback?token={jwt_token}")
+    
+    except requests.exceptions.RequestException as e:
+        print(f"Error while exchanging token: {e}")
+        return jsonify({"error": "Token exchange failed"}), 500
+
+
+# @auth_blueprint.route('/refresh_token')
+# def refresh_token():
+#     if 'refresh_token' not in session:
+#         return redirect('/login')
+    
+#     if datetime.now().timestamp() > session['expires_at']:
+#         req_body = {
+#             'grant_type': 'refresh_token',
+#             'refresh_token': session['refresh_token'],
+#             'client_id': SPOTIFY_CID,
+#             'client_secret': SPOTIFY_CS
+#         }
+
+#         response = requests.post(TOKEN_URL, data=req_body)
+#         new_token_info = response.json()
+
+#         session['access_token'] = new_token_info['access_token']
+#         session['expires_at'] = datetime.now().timestamp() + new_token_info['expires_in'] 
+
+#         next_url = session.pop('next_url', '/user/topTracks')
+#         return redirect(next_url)

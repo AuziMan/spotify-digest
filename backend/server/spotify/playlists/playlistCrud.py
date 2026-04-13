@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import requests
 import json
 from server.spotify.utils.sharedFunctions import format_response_array, format_response_obj, format_playlist_tracks, get_user_info_from_spotify
+from server.spotify.utils.auth import get_spotify_token
 
 SPOTIFY_URL_USER_SEARCH = "https://api.spotify.com/v1"
 
@@ -13,6 +14,13 @@ playlist_blueprint = Blueprint("playlist", __name__)
 def get_user_playlists():
     print("in user albums")
     try:
+
+        access_token = get_spotify_token()
+        print(f'access token: {access_token}')
+
+        if not access_token:
+            return jsonify({"error": "Unauthorized"}), 401
+
         namesOnly = request.args.get('namesOnly', 'false').lower() == 'true'
 
         user_info = get_user_info_from_spotify()
@@ -24,14 +32,8 @@ def get_user_playlists():
         if not userId:
             return jsonify({"error": "User ID not found in user info"}), 500
         
-        if not session.get('access_token'):
-            return redirect(url_for('auth.login'))
-
-        if datetime.datetime.now().timestamp() > session['expires_at']:
-            return redirect(url_for('auth.refresh_token'))
-        
         headers = {
-            'Authorization': f"Bearer {session['access_token']}"
+            'Authorization': f"Bearer {access_token}"
         }
 
         endpoint = f"{SPOTIFY_URL_USER_SEARCH}/users/{userId}/playlists?limit=100"
@@ -59,14 +61,13 @@ def get_user_playlist_songs():
         playlist_id = request.args.get('playlistId')
         namesOnly = request.args.get('namesOnly', 'false').lower() == 'true'
 
-        if not session.get('access_token'):
-            return redirect(url_for('auth.login'))
+        access_token = get_spotify_token()
 
-        if datetime.datetime.now().timestamp() > session['expires_at']:
-            return redirect(url_for('auth.refresh_token'))
+        if not access_token:
+            return jsonify({"error": "Unauthorized"}), 401
         
         headers = {
-            'Authorization': f"Bearer {session['access_token']}"
+            'Authorization': f"Bearer {access_token}"
         }
 
         # Get Playlist Tracks
@@ -104,6 +105,12 @@ def get_user_playlist_songs():
 @playlist_blueprint.route('/createPlaylist', methods=['POST'])
 def post_create_new_album():
     try:
+
+        access_token = get_spotify_token()
+
+        if not access_token:
+            return jsonify({"error": "Unauthorized"}), 401
+
         # Get the body of the request (expecting JSON with 'name')
         playlist_info = request.get_json()
 
@@ -127,17 +134,9 @@ def post_create_new_album():
         if not userId:
             return jsonify({"error": "User ID not found in user info"}), 500
         
-        # Check if the access token is in the session
-        if not session.get('access_token'):
-            return redirect(url_for('auth.login'))
-
-        # Ensure the token is valid (you can also have a separate function to handle expiry)
-        if datetime.datetime.now().timestamp() > session['expires_at']:
-            return redirect(url_for('auth.refresh_token'))
-        
         # Authorization header
         headers = {
-            'Authorization': f"Bearer {session['access_token']}"
+            'Authorization': f"Bearer {access_token}"
         }
 
         # Now that we have the userId, create the playlist
@@ -160,6 +159,12 @@ def post_create_new_album():
 @playlist_blueprint.route('/removePlaylist', methods=['POST'])
 def delete_remove_playlist():
     try:
+
+        access_token = get_spotify_token()
+
+        if not access_token:
+            return jsonify({"error": "Unauthorized"}), 401
+
         # Get the body of the request (expecting JSON with 'name')
         data = request.get_json()
         playlist_id = data.get('playlist_id')
@@ -167,17 +172,9 @@ def delete_remove_playlist():
         print(f'got playlist id: {playlist_id}')
 
         
-        # Check if the access token is in the session
-        if not session.get('access_token'):
-            return redirect(url_for('auth.login'))
-
-        # Ensure the token is valid (you can also have a separate function to handle expiry)
-        if datetime.datetime.now().timestamp() > session['expires_at']:
-            return redirect(url_for('auth.refresh_token'))
-        
         # Authorization header
         headers = {
-            'Authorization': f"Bearer {session['access_token']}"
+            'Authorization': f"Bearer {access_token}"
         }
 
         endpoint = f"{SPOTIFY_URL_USER_SEARCH}/playlists/{playlist_id}/followers"
@@ -201,6 +198,12 @@ def delete_remove_playlist():
 @playlist_blueprint.route('/addToPlaylist', methods=['POST'])
 def post_add_to_playlist():
     try:
+
+        access_token = get_spotify_token()
+
+        if not access_token:
+            return jsonify({"error": "Unauthorized"}), 401
+
         # Get the body of the request (expecting JSON with 'name')
         data = request.get_json()
         track_ids = data.get('uris')
@@ -218,18 +221,11 @@ def post_add_to_playlist():
         }
 
         print(requestBody)
-        
-        # Check if the access token is in the session
-        if not session.get('access_token'):
-            return redirect(url_for('auth.login'))
 
-        # Ensure the token is valid (you can also have a separate function to handle expiry)
-        if datetime.datetime.now().timestamp() > session['expires_at']:
-            return redirect(url_for('auth.refresh_token'))
         
         # Authorization header
         headers = {
-            'Authorization': f"Bearer {session['access_token']}"
+            'Authorization': f"Bearer {access_token}"
         }
 
         endpoint = f"{SPOTIFY_URL_USER_SEARCH}/playlists/{playlist_id}/tracks"

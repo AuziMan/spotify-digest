@@ -13,7 +13,11 @@ function Header() {
 
   useEffect(() => {
     const fetchNowPlaying = () => {
-      axios.get('/user/nowPlaying')
+      axios.get('/user/nowPlaying', {
+                headers: {
+                    Authorization: `Bearer ${localStorage.getItem("token")}`
+                }
+        })
         .then(response => {
           if (response.data && response.data.length > 0 && response.data[0].track) {
             setTrack(response.data[0]);
@@ -27,7 +31,11 @@ function Header() {
     };
 
     const fetchPlaylists = () => {
-      axios.get('/playlist/playlists')
+      axios.get('/playlist/playlists', {
+                headers: {
+                    Authorization: `Bearer ${localStorage.getItem("token")}`
+                }
+        })
         .then(response => {
           if (response.data && response.data.items) {
             setPlaylists(response.data.items);
