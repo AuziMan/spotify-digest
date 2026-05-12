@@ -26,6 +26,9 @@ function App() {
                 <Route path="/user-reccomended" element={<UserReccomendedTracks />} />
                 <Route path="/create-playlist" element={<CreatePlaylistForm />} />
                 <Route path="/playlistTracks/:playlistId" element={<UserPlaylistTracks />} />
+                <Route path="/playlist/playlistTracks/:playlistId" element={<UserPlaylistTracks />} />
+
+                
             </Routes>
         </Router>
     );

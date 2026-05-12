@@ -9,29 +9,30 @@ const NowPlaying = () => {
 
     useEffect(() => {
         const fetchNowPlaying = () => {
+            axios.get('/user/nowPlaying', {
+                        headers: {
+                            Authorization: `Bearer ${localStorage.getItem("token")}`
+                        }
+        })
+        .then(response => {
+            if (response.data && response.data.length > 0 && response.data[0].track) {
+                setTrack(response.data[0]);
+                setLoading(false);
+            } else {
+                setTrack(null);
+                setLoading(false);
+            }
+            })
+            .catch(error => {
+            console.error("Error fetching now playing track:", error);
+            });
+        };
 
-            axios.get('/user/nowPlaying')
-                .then(response => {
-                    console.log("Now Playing Response", response);
-                    
-                    if (response.data.length > 0) {
-                        setTrack(response.data[0])
-                    } else {
-                        setTrack(null)
-                    }
-                    setLoading(false);
-                })
-                .catch(error => {
-                    setError(error);
-                    setLoading(false);
-                });
-            };
+        fetchNowPlaying(); 
 
-            fetchNowPlaying(); 
+        const interval = setInterval(fetchNowPlaying, 15000); // Poll every 5 seconds
 
-            const interval = setInterval(fetchNowPlaying, 100000);
-
-            return () => clearInterval(interval);
+        return () => clearInterval(interval);
     }, []);
 
     if (loading) return <div>Loading...</div>;

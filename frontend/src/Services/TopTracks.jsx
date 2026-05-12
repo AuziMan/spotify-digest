@@ -16,7 +16,7 @@ const TopTracks = () => {
         })
             .then(response => {
                 setTracks(response.data);
-                console.log("Top Tracks", response.data);
+                // console.log("Top Tracks", response.data);
                 setLoading(false);
             })
             .catch(error => {

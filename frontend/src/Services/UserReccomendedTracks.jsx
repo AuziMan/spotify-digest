@@ -12,10 +12,15 @@ const UserReccomendedTracks = () => {
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        axios.get('/user/recommendations')
+        axios.get('/user/recommendations', {
+
+            headers: {
+                    Authorization: `Bearer ${localStorage.getItem("token")}`
+                }
+        })
             .then(response => {
                 setTracks(response.data);
-                console.log("reccomendation", response);
+                // console.log("reccomendation", response);
                 setLoading(false);
             })
             .catch(error => {

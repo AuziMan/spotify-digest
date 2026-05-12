@@ -12,11 +12,11 @@ playlist_blueprint = Blueprint("playlist", __name__)
 
 @playlist_blueprint.route('/playlists', methods=['GET'])
 def get_user_playlists():
-    print("in user albums")
+    print("in user playlists")
     try:
 
         access_token = get_spotify_token()
-        print(f'access token: {access_token}')
+        # print(f'access token: {access_token}')
 
         if not access_token:
             return jsonify({"error": "Unauthorized"}), 401
@@ -37,7 +37,7 @@ def get_user_playlists():
         }
 
         endpoint = f"{SPOTIFY_URL_USER_SEARCH}/users/{userId}/playlists?limit=100"
-        print(endpoint)
+        # print(endpoint)
         
         response = requests.get(endpoint, headers=headers)
 
@@ -55,14 +55,13 @@ def get_user_playlists():
     
 
 
-@playlist_blueprint.route('/playlistTracks', methods=['GET'])
-def get_user_playlist_songs():
+@playlist_blueprint.route('/playlistTracks/<playlist_id>', methods=['GET'])
+def get_user_playlist_songs(playlist_id):
+    print("in user playlist songs")
+
     try:
-        playlist_id = request.args.get('playlistId')
-        namesOnly = request.args.get('namesOnly', 'false').lower() == 'true'
 
         access_token = get_spotify_token()
-
         if not access_token:
             return jsonify({"error": "Unauthorized"}), 401
         
@@ -70,19 +69,26 @@ def get_user_playlist_songs():
             'Authorization': f"Bearer {access_token}"
         }
 
+        # playlist_id = request.args.get('playlistId')
+        print(f'got playlist id: {playlist_id}')
+        namesOnly = request.args.get('namesOnly', 'false').lower() == 'true'
+
+
         # Get Playlist Tracks
         tracks_endpoint = f"{SPOTIFY_URL_USER_SEARCH}/playlists/{playlist_id}/tracks?limit=100"
         tracks_response = requests.get(tracks_endpoint, headers=headers)
+        print(tracks_response.json())
 
         # Get Playlist info (for the name)
         playlist_endpoint = f"{SPOTIFY_URL_USER_SEARCH}/playlists/{playlist_id}"
         playlist_response = requests.get(playlist_endpoint, headers=headers)
 
-
         if tracks_response.status_code == 200 and playlist_response.status_code == 200:
             
+            print("here")
             tracks_data = tracks_response.json()
             playlist_data = playlist_response.json()
+            print(playlist_data)
             # filtered_tracks_data = tracks_data["items"][:1]
 
             playlist_tracks = format_playlist_tracks(tracks_data)

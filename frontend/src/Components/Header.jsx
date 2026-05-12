@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Link } from 'react-router-dom'; // Import Link for navigation
+// import { Link } from 'react-router-dom'; // Import Link for navigation
 import { Navbar, Nav, NavDropdown, Container } from 'react-bootstrap';
 import NowPlayingHover from '../Components/NowPlayingHover'; // Import NowPlayingHover component
 
@@ -101,13 +101,11 @@ function Header() {
                 <NavDropdown.Item disabled>No Playlists Found</NavDropdown.Item>
               )}
               <NavDropdown.Divider />
-              <NavDropdown.Item as={Link} to="/create-playlist">
+              {/* <NavDropdown.Item as={Link} to="/create-playlist">
                 Create New Playlist
-              </NavDropdown.Item>
+              </NavDropdown.Item> */}
             </NavDropdown>
           </Nav>
-
-          <Nav.Link href="/">Login</Nav.Link>
 
 
           {/* Right Side: Currently Playing Track */}
@@ -153,6 +151,9 @@ function Header() {
           />
         </div>
       )}
+
+
+       <Nav.Link href="/">Login</Nav.Link>
     </Navbar>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { API_BASE_URL } from '../utils/config';
+// import { API_BASE_URL } from '../utils/config';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { Container, Row, Col, Alert, Spinner } from 'react-bootstrap';
@@ -14,14 +14,18 @@ const UserPlaylistTracks = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
+    // console.log("Playlist ID from URL:", playlistId);
+
     useEffect(() => {
         const fetchPlaylistTracks = async () => {
             try {
-                const response = await axios.get(`${API_BASE_URL}/playlist/playlistTracks?playlistId=${playlistId}`, 
-                { withCredentials: true }
-
-                );
-                console.log(response)
+                const response = await axios.get(
+                    `/playlist/playlistTracks/${playlistId}`,
+                    {
+                    headers: {
+                            Authorization: `Bearer ${localStorage.getItem("token")}`
+                    }
+                });
 
                 setTracks(response.data.playlistTracks || []);
                 setPlaylistName(response.data.playlistName || "Unknown Playlist")

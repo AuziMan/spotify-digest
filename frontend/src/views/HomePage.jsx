@@ -7,7 +7,7 @@ import UserPlaylists from "../Services/UserPlaylists";
 const HomePage = () => {
     return (
         <Container className="d-flex flex-column align-items-center justify-content-center min-vh-100">
-            <NowPlaying />
+            {/* <NowPlaying /> */}
             {/* <Accordion defaultActiveKey="0" className="w-75">
                 <Card>
                     <Accordion.Header>

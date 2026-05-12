@@ -16,7 +16,7 @@ const UserPlaylists = () => {
         })
             .then(response => {
                 setPlaylists(response.data.items);
-                console.log("User Playlists", response.data)
+                // console.log("User Playlists", response.data);
                 setLoading(false);
             })
             .catch(error => {
@@ -33,12 +33,13 @@ const UserPlaylists = () => {
             <h1>Your Public Playlists</h1>
             <div>
                 {playlists.map((playlist) => (
-                    <div className="d-flex justify-content-center mt-3">
+                    <div 
+                    key={playlist.id}
+                    className="d-flex justify-content-center mt-3">
                         <Link 
-                            key={playlist.id}
-                            to={`/playlistTracks/${playlist.id}`}>
+                            to={`/playlist/playlistTracks/${playlist.id}`}>
                             <button className='btn btn-primary rounded-pill shadow-sm px-4 py-2'>
-                            {playlist.name}
+                                {playlist.name}
                             </button>
                         </Link>
                     </div>
