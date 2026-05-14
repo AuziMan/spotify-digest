@@ -78,6 +78,49 @@ def login():
     return redirect(auth_url)  # Redirect the user to Spotify's authorization page
 
 
+@auth_blueprint.route('/refresh')
+def refresh_token():
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Unauthorized"}), 401
+
+    jwt_token = auth_header.split()[1]
+
+    try:
+        # Decode without verifying expiry so we can still read the refresh token
+        payload = jwt.decode(
+            jwt_token, JWT_SECRET, algorithms=[JWT_ALGORITHM],
+            options={"verify_exp": False}
+        )
+        stored_refresh_token = payload.get("refresh_token")
+
+        if not stored_refresh_token:
+            return jsonify({"error": "No refresh token available"}), 401
+
+        req_body = {
+            'grant_type': 'refresh_token',
+            'refresh_token': stored_refresh_token,
+            'client_id': SPOTIFY_CID,
+            'client_secret': SPOTIFY_CS
+        }
+        response = requests.post(TOKEN_URL, data=req_body)
+
+        if response.status_code != 200:
+            print(f"Spotify refresh failed: {response.status_code} {response.text[:200]}")
+            return jsonify({"error": "Token refresh failed"}), 401
+
+        token_info = response.json()
+        new_access_token = token_info['access_token']
+        new_refresh_token = token_info.get('refresh_token', stored_refresh_token)
+
+        new_jwt = create_jwt_token(new_access_token, new_refresh_token)
+        return jsonify({"token": new_jwt})
+
+    except Exception as e:
+        print(f"refresh_token error: {e}")
+        return jsonify({"error": "Invalid token"}), 401
+
+
 @auth_blueprint.route('/callback')
 def callback():
     print("Processing OAuth callback")

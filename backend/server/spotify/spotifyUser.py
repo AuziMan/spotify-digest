@@ -4,7 +4,7 @@ from flask import Flask, jsonify, redirect, url_for, request, Blueprint, session
 from dotenv import load_dotenv
 import requests
 import json
-from server.spotify.utils.sharedFunctions import format_response_array, format_response_obj, format_user_recc_seeds, search_tracks_by_id, format_track_search
+from server.spotify.utils.sharedFunctions import format_response_array, format_response_obj, format_user_recc_seeds, search_tracks_by_id, format_track_search, fetch_audio_features
 from server.spotify.utils.auth import get_spotify_token
 
 
@@ -37,6 +37,11 @@ def get_top_tracks():
         if response.status_code == 200:
             data = response.json()
             track_info = format_response_array(data)
+            audio_features = fetch_audio_features(track_info, access_token)
+            for track in track_info:
+                feat = audio_features.get(track.get('id'), {})
+                track['bpm'] = feat.get('bpm')
+                track['key'] = feat.get('key')
             return jsonify(track_info)
         else:
             return jsonify({"error": f"Failed to fetch top tracks: {response.status_code}"}), response.status_code
@@ -95,6 +100,38 @@ def get_user_info():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     
+
+@user_blueprint.route('/track/<track_id>', methods=['GET'])
+def get_track_detail(track_id):
+    try:
+        access_token = get_spotify_token()
+        if not access_token:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        headers = {'Authorization': f"Bearer {access_token}"}
+
+        resp = requests.get(f"{SPOTIFY_URL_USER_SEARCH}/tracks/{track_id}", headers=headers)
+        if resp.status_code != 200:
+            return jsonify({"error": "Track not found"}), 404
+
+        data = resp.json()
+        track_info = {
+            "id": data["id"],
+            "track": data["name"],
+            "artist": data["artists"][0]["name"] if data.get("artists") else "Unknown",
+            "albumImg": data["album"]["images"][0]["url"] if data.get("album", {}).get("images") else None,
+        }
+
+        audio_features = fetch_audio_features([track_info], access_token)
+        feat = audio_features.get(track_id, {})
+        track_info['bpm'] = feat.get('bpm')
+        track_info['key'] = feat.get('key')
+
+        return jsonify(track_info)
+    except Exception as e:
+        print(f"get_track_detail error: {e}")
+        return jsonify({"error": str(e)}), 500
+
 
 # Implement user reccomendations:
 # 1. Call Top Tracks endpoint to get the top 5 track Ids

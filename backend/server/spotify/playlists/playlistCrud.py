@@ -1,9 +1,10 @@
 import datetime
+import concurrent.futures
 from flask import Flask, jsonify, redirect, url_for, request, Blueprint, session
 from dotenv import load_dotenv
 import requests
 import json
-from server.spotify.utils.sharedFunctions import format_response_array, format_response_obj, format_playlist_tracks, get_user_info_from_spotify
+from server.spotify.utils.sharedFunctions import format_response_array, format_response_obj, format_playlist_tracks, get_user_info_from_spotify, fetch_audio_features, fetch_artist_genres
 from server.spotify.utils.auth import get_spotify_token
 
 SPOTIFY_URL_USER_SEARCH = "https://api.spotify.com/v1"
@@ -94,6 +95,12 @@ def get_user_playlist_songs(playlist_id):
             playlist_tracks = format_playlist_tracks(tracks_data)
             platlist_name =  playlist_data.get("name")
 
+            audio_features = fetch_audio_features(playlist_tracks, access_token)
+            for track in playlist_tracks:
+                feat = audio_features.get(track.get('id'), {})
+                track['bpm'] = feat.get('bpm')
+                track['key'] = feat.get('key')
+
             formatted_response = {
                 "playlistName": platlist_name,
                 "playlistTracks": playlist_tracks
@@ -106,6 +113,165 @@ def get_user_playlist_songs(playlist_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+
+@playlist_blueprint.route('/djGenres', methods=['GET'])
+def get_dj_genres():
+    """Fetch all user tracks across all playlists, deduplicated and grouped by genre."""
+    try:
+        access_token = get_spotify_token()
+        if not access_token:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        headers = {'Authorization': f"Bearer {access_token}"}
+
+        user_info = get_user_info_from_spotify()
+        if not user_info:
+            return jsonify({"error": "Failed to get user info"}), 500
+
+        userId = user_info.get('id')
+        playlists_resp = requests.get(
+            f"{SPOTIFY_URL_USER_SEARCH}/users/{userId}/playlists?limit=50",
+            headers=headers
+        )
+        if playlists_resp.status_code != 200:
+            return jsonify({"error": "Failed to fetch playlists"}), 400
+
+        playlists = playlists_resp.json().get('items', [])
+        print(f"[djGenres] fetching tracks for {len(playlists)} playlists")
+
+        def fetch_playlist_items(playlist):
+            try:
+                resp = requests.get(
+                    f"{SPOTIFY_URL_USER_SEARCH}/playlists/{playlist['id']}/tracks?limit=100",
+                    headers=headers,
+                    timeout=10
+                )
+                if resp.status_code == 200:
+                    return resp.json().get('items', [])
+            except Exception as e:
+                print(f"[djGenres] error fetching {playlist.get('id')}: {e}")
+            return []
+
+        all_items = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            for items in executor.map(fetch_playlist_items, playlists):
+                all_items.extend(items)
+
+        # Deduplicate tracks by ID
+        seen = set()
+        tracks = []
+        for item in all_items:
+            t = item.get('track')
+            if not t or not t.get('id') or t['id'] in seen:
+                continue
+            seen.add(t['id'])
+            artist_id = t['artists'][0]['id'] if t.get('artists') else None
+            tracks.append({
+                'id': t['id'],
+                'track': t['name'],
+                'artist': t['artists'][0]['name'] if t.get('artists') else 'Unknown',
+                'artistId': artist_id,
+                'albumImg': t['album']['images'][0]['url'] if t.get('album', {}).get('images') else None,
+            })
+
+        print(f"[djGenres] {len(tracks)} unique tracks")
+
+        # Batch fetch artist genres
+        artist_ids = list({t['artistId'] for t in tracks if t.get('artistId')})
+        artist_genres_map = fetch_artist_genres(artist_ids, access_token)
+
+        # Assign genre to each track
+        for track in tracks:
+            genres = artist_genres_map.get(track.get('artistId'), [])
+            track['genre'] = genres[0].title() if genres else 'Other'
+
+        # Group by genre, sort by count
+        genre_map = {}
+        for track in tracks:
+            genre_map.setdefault(track['genre'], []).append(track)
+
+        genres_sorted = sorted(genre_map.items(), key=lambda x: -len(x[1]))
+
+        return jsonify({
+            'totalTracks': len(tracks),
+            'genres': [{'genre': g, 'count': len(t), 'tracks': t} for g, t in genres_sorted],
+        })
+
+    except Exception as e:
+        print(f"get_dj_genres error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@playlist_blueprint.route('/djPlaylist/<playlist_id>', methods=['GET'])
+def get_dj_playlist(playlist_id):
+    try:
+        access_token = get_spotify_token()
+        if not access_token:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        headers = {'Authorization': f"Bearer {access_token}"}
+
+        tracks_resp = requests.get(
+            f"{SPOTIFY_URL_USER_SEARCH}/playlists/{playlist_id}/tracks?limit=100",
+            headers=headers
+        )
+        playlist_resp = requests.get(
+            f"{SPOTIFY_URL_USER_SEARCH}/playlists/{playlist_id}",
+            headers=headers
+        )
+
+        if tracks_resp.status_code != 200 or playlist_resp.status_code != 200:
+            return jsonify({"error": "Failed to fetch playlist data"}), 400
+
+        playlist_name = playlist_resp.json().get('name', 'Playlist')
+
+        tracks = []
+        for item in tracks_resp.json().get('items', []):
+            t = item.get('track')
+            if not t or not t.get('id'):
+                continue
+            artist_id = t['artists'][0]['id'] if t.get('artists') else None
+            tracks.append({
+                'id': t['id'],
+                'track': t['name'],
+                'artist': t['artists'][0]['name'] if t.get('artists') else 'Unknown',
+                'artistId': artist_id,
+                'albumImg': t['album']['images'][0]['url'] if t.get('album', {}).get('images') else None,
+            })
+
+        # Batch fetch artist genres and audio features
+        artist_ids = [t['artistId'] for t in tracks if t.get('artistId')]
+        artist_genres_map = fetch_artist_genres(artist_ids, access_token)
+
+        audio_features = fetch_audio_features(tracks, access_token)
+
+        # Merge into tracks
+        for track in tracks:
+            feat = audio_features.get(track['id'], {})
+            track['bpm'] = feat.get('bpm')
+            track['key'] = feat.get('key')
+            genres = artist_genres_map.get(track.get('artistId'), [])
+            # Use first genre as primary; fall back to 'Other'
+            track['genre'] = genres[0].title() if genres else 'Other'
+            track['allGenres'] = [g.title() for g in genres]
+
+        # Group by primary genre
+        genre_map = {}
+        for track in tracks:
+            genre_map.setdefault(track['genre'], []).append(track)
+
+        genres_sorted = sorted(genre_map.items(), key=lambda x: -len(x[1]))
+
+        return jsonify({
+            'playlistName': playlist_name,
+            'totalTracks': len(tracks),
+            'genres': [{'genre': g, 'count': len(t), 'tracks': t} for g, t in genres_sorted],
+        })
+
+    except Exception as e:
+        print(f"get_dj_playlist error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 @playlist_blueprint.route('/createPlaylist', methods=['POST'])

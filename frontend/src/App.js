@@ -1,37 +1,41 @@
 import React from 'react';
-import 'bootstrap/dist/css/bootstrap.min.css';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import Login from './utils/Auth/Login';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Callback from './utils/Auth/Callback';
-import TopTracks from './Services/TopTracks';
-import NowPlaying from './Services/NowPlaying';
+import LoginPage from './views/LoginPage';
+import AppLayout from './Components/layout/AppLayout';
 import HomePage from './views/HomePage';
-import UserPlaylists from './Services/UserPlaylists';
-import CreatePlaylistForm from './Components/CreatePlaylistForm';
-import UserPlaylistTracks from './Services/UserPlaylistTracks';
-import UserReccomendedTracks from './Services/UserReccomendedTracks';
-import Header from './Components/Header';
+import TopTracksPage from './views/TopTracksPage';
+import NowPlayingPage from './views/NowPlayingPage';
+import RecommendedPage from './views/RecommendedPage';
+import CreatePlaylistPage from './views/CreatePlaylistPage';
+import PlaylistTracksPage from './views/PlaylistTracksPage';
+import TrackPage from './views/TrackPage';
+import DJPlaylistsPage from './views/DJPlaylistsPage';
+import DJGenreTracksPage from './views/DJGenreTracksPage';
 
 function App() {
-    return (
-        <Router>
-            <Header/>
-            <Routes>
-                <Route path="/" element={<Login />} />
-                <Route path="/home" element={<HomePage />} />
-                <Route path="/top-tracks" element={<TopTracks />} />
-                <Route path="/now-playing" element={<NowPlaying />} />
-                <Route path="/callback" element={<Callback />} />
-                <Route path="/user-playlists" element={<UserPlaylists />} />
-                <Route path="/user-reccomended" element={<UserReccomendedTracks />} />
-                <Route path="/create-playlist" element={<CreatePlaylistForm />} />
-                <Route path="/playlistTracks/:playlistId" element={<UserPlaylistTracks />} />
-                <Route path="/playlist/playlistTracks/:playlistId" element={<UserPlaylistTracks />} />
-
-                
-            </Routes>
-        </Router>
-    );
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<LoginPage />} />
+        <Route path="/callback" element={<Callback />} />
+        <Route element={<AppLayout />}>
+          <Route path="/home" element={<HomePage />} />
+          <Route path="/top-tracks" element={<TopTracksPage />} />
+          <Route path="/now-playing" element={<NowPlayingPage />} />
+          <Route path="/user-playlists" element={<Navigate to="/home" replace />} />
+          <Route path="/user-reccomended" element={<RecommendedPage />} />
+          <Route path="/create-playlist" element={<CreatePlaylistPage />} />
+          <Route path="/playlistTracks/:playlistId" element={<PlaylistTracksPage />} />
+          <Route path="/playlist/playlistTracks/:playlistId" element={<PlaylistTracksPage />} />
+          <Route path="/track/:trackId" element={<TrackPage />} />
+          <Route path="/dj-playlists" element={<DJPlaylistsPage />} />
+          <Route path="/dj-playlists/genre/:genreName" element={<DJGenreTracksPage />} />
+          <Route path="*" element={<Navigate to="/home" replace />} />
+        </Route>
+      </Routes>
+    </Router>
+  );
 }
 
 export default App;
